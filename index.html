@@ -878,14 +878,21 @@ function mergeByBrand(h1Raw, h2Raw) {
           else              { map[name].h2_amount += amt; map[name].h2_count++; }
         });
       } else {
-        const cashAmt = parseFloat(tx.taxIncludedCash || tx.cash || 0);
-        const totalAmt = parseFloat(tx.taxIncludedTotalPrice || tx.totalPrice || 0);
+        // 決済明細なし→合計金額から現金を除いた金額をクレジットカードとして処理
+        const cashAmt = parseFloat(tx.cash || tx.cashChange || 0);
+        const totalAmt = parseFloat(tx.total || tx.subtotal || 0);
         const cardAmt = totalAmt - cashAmt;
         if (cardAmt > 0) {
           const name = 'クレジットカード';
           if (!map[name]) map[name] = { name, h1_amount: 0, h1_count: 0, h2_amount: 0, h2_count: 0 };
           if (period === 1) { map[name].h1_amount += cardAmt; map[name].h1_count++; }
           else              { map[name].h2_amount += cardAmt; map[name].h2_count++; }
+        } else if (totalAmt > 0) {
+          // 現金かどうか不明な場合も一旦すべてクレジットカードとして表示
+          const name = 'クレジットカード';
+          if (!map[name]) map[name] = { name, h1_amount: 0, h1_count: 0, h2_amount: 0, h2_count: 0 };
+          if (period === 1) { map[name].h1_amount += totalAmt; map[name].h1_count++; }
+          else              { map[name].h2_amount += totalAmt; map[name].h2_count++; }
         }
       }
     });
