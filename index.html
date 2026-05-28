@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>キャッシュレス入金管理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --bg2: #181c27;
+    --bg3: #1e2335;
+    --border: #2a3050;
+    --accent: #4f7cff;
+    --accent2: #38d9a9;
+    --warn: #ffd43b;
+    --danger: #ff6b6b;
+    --text: #e8eaf0;
+    --text2: #8892b0;
+    --text3: #4a5578;
+    --font: 'Noto Sans JP', sans-serif;
+    --mono: 'DM Mono', monospace;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo { font-size: 15px; font-weight: 700; letter-spacing: .03em; color: var(--text); }
+  .logo span { color: var(--accent); }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .badge {
+    font-size: 11px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-family: var(--mono);
+  }
+  .badge.ok { color: var(--accent2); border-color: var(--accent2); }
+  .badge.ng { color: var(--danger); border-color: var(--danger); }
+
+  /* ── Layout ── */
+  .layout { display: flex; height: calc(100vh - 56px); }
+  .sidebar {
+    width: 200px;
+    min-width: 200px;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 16px 0;
+  }
+  @media (max-width: 640px) {
+    .sidebar { display: none; }
+    .layout { flex-direction: column; }
+    .main { height: auto; }
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    cursor: pointer;
+    color: var(--text2);
+    transition: all .15s;
+    font-size: 13px;
+    border-left: 3px solid transparent;
+  }
+  .nav-item:hover { color: var(--text); background: var(--bg3); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(79,124,255,.07); }
+  .nav-icon { font-size: 16px; width: 18px; text-align: center; }
+
+  .main { flex: 1; overflow-y: auto; padding: 24px; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    color: var(--text2);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  /* ── Form elements ── */
+  label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 6px; }
+  input[type=text], input[type=password], input[type=date], select {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 9px 12px;
+    font-family: var(--font);
+    font-size: 13px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  input[type=password] { font-family: var(--mono); letter-spacing: .1em; }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  @media (max-width: 500px) { .form-row { grid-template-columns: 1fr; } }
+  .form-group { margin-bottom: 12px; }
+
+  /* ── Buttons ── */
+  .btn {
+    padding: 9px 18px;
+    border: none;
+    border-radius: 6px;
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all .15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #6b91ff; }
+  .btn-secondary { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+  .btn-secondary:hover { color: var(--text); border-color: var(--text3); }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+  .btn-danger { background: rgba(255,107,107,.15); color: var(--danger); border: 1px solid rgba(255,107,107,.3); }
+  .btn-success { background: rgba(56,217,169,.15); color: var(--accent2); border: 1px solid rgba(56,217,169,.3); }
+
+  /* ── Period toggle ── */
+  .period-tabs {
+    display: flex;
+    background: var(--bg3);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+    width: fit-content;
+    margin-bottom: 20px;
+  }
+  .period-tab {
+    padding: 7px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text2);
+    transition: all .15s;
+    border: none;
+    background: none;
+    font-family: var(--font);
+    white-space: nowrap;
+  }
+  .period-tab.active { background: var(--accent); color: #fff; }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text3);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  td { padding: 11px 12px; border-bottom: 1px solid rgba(42,48,80,.5); font-size: 13px; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+
+  .brand-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px 10px 3px 6px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .brand-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .amount { font-family: var(--mono); font-size: 13px; color: var(--text); }
+  .amount-sub { font-size: 11px; color: var(--text2); }
+
+  .date-input-cell { display: flex; align-items: center; gap: 8px; }
+  .date-input-cell input[type=date] { width: 140px; }
+
+  .status-badge {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+  .status-set { background: rgba(56,217,169,.15); color: var(--accent2); }
+  .status-unset { background: rgba(255,212,59,.1); color: var(--warn); }
+  .status-overdue { background: rgba(255,107,107,.15); color: var(--danger); }
+
+  /* ── Summary strip ── */
+  .summary-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .summary-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .summary-label { font-size: 11px; color: var(--text2); margin-bottom: 6px; }
+  .summary-value { font-size: 20px; font-weight: 700; font-family: var(--mono); color: var(--text); }
+  .summary-value.accent { color: var(--accent); }
+  .summary-value.green { color: var(--accent2); }
+
+  /* ── Alerts ── */
+  .alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .alert-info { background: rgba(79,124,255,.1); border: 1px solid rgba(79,124,255,.3); color: #a0b4ff; }
+  .alert-warn { background: rgba(255,212,59,.08); border: 1px solid rgba(255,212,59,.25); color: var(--warn); }
+
+  /* ── Loader ── */
+  .loader {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Tabs (page sections) ── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── Mobile bottom nav ── */
+  .mobile-nav {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    padding: 8px 0 12px;
+  }
+  @media (max-width: 640px) {
+    .mobile-nav { display: flex; justify-content: space-around; }
+    .main { padding: 16px; padding-bottom: 80px; }
+  }
+  .mobile-nav-item {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 3px;
+    color: var(--text2); font-size: 10px;
+    cursor: pointer; padding: 4px 12px;
+    border: none; background: none; font-family: var(--font);
+  }
+  .mobile-nav-item.active { color: var(--accent); }
+  .mobile-nav-item span:first-child { font-size: 20px; }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--text2);
+  }
+  .empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state p { font-size: 13px; }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .section-title { font-size: 16px; font-weight: 700; }
+
+  select option { background: var(--bg2); }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">キャッシュレス<span>入金管理</span></div>
+  <div class="header-actions">
+    <span id="api-status" class="badge ng">未接続</span>
+    <button class="btn btn-secondary btn-sm" onclick="showPage('settings')">⚙ 設定</button>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="sidebar">
+    <div class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard">
+      <span class="nav-icon">📊</span> ダッシュボード
+    </div>
+    <div class="nav-item" onclick="showPage('brands')" id="nav-brands">
+      <span class="nav-icon">💳</span> ブランド管理
+    </div>
+    <div class="nav-item" onclick="showPage('schedule')" id="nav-schedule">
+      <span class="nav-icon">📅</span> 入金スケジュール
+    </div>
+    <div class="nav-item" onclick="showPage('settings')" id="nav-settings">
+      <span class="nav-icon">⚙</span> API設定
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <!-- ===== ダッシュボード ===== -->
+    <div class="page active" id="page-dashboard">
+      <div class="section-header">
+        <div class="section-title">ダッシュボード</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="month-select" style="width:auto;padding:7px 10px;" onchange="refreshDashboard()">
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="fetchSalesData()">
+            <span id="fetch-icon">↻</span> スマレジ取得
+          </button>
+        </div>
+      </div>
+
+      <div class="period-tabs">
+        <button class="period-tab active" onclick="setPeriod(1)" id="tab-1">1日〜15日</button>
+        <button class="period-tab" onclick="setPeriod(2)" id="tab-2">16日〜末日</button>
+      </div>
+
+      <div class="summary-strip" id="summary-strip">
+        <div class="summary-card">
+          <div class="summary-label">対象期間 売上合計</div>
+          <div class="summary-value accent" id="total-amount">¥0</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">ブランド数</div>
+          <div class="summary-value" id="brand-count">0</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">入金日設定済み</div>
+          <div class="summary-value green" id="set-count">0 / 0</div>
+        </div>
+      </div>
+
+      <div id="no-data-alert" class="alert alert-info">
+        ℹ API設定を完了してから「スマレジ取得」ボタンを押すと、ブランド別の売上データが表示されます。
+      </div>
+
+      <div class="card" id="data-card" style="display:none">
+        <div class="card-title">ブランド別 売上・入金日</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ブランド</th>
+                <th>売上金額</th>
+                <th>件数</th>
+                <th>入金予定日</th>
+                <th>ステータス</th>
+              </tr>
+            </thead>
+            <tbody id="sales-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ブランド管理 ===== -->
+    <div class="page" id="page-brands">
+      <div class="section-header">
+        <div class="section-title">ブランド管理</div>
+        <button class="btn btn-primary btn-sm" onclick="openAddBrand()">＋ 手動追加</button>
+      </div>
+      <div class="alert alert-info">
+        ℹ スマレジからデータ取得すると自動でブランドが登録されます。手動で追加することもできます。
+      </div>
+      <div class="card">
+        <div class="card-title">登録ブランド一覧</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ブランド名</th>
+                <th>前半期デフォルト入金日</th>
+                <th>後半期デフォルト入金日</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="brands-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 追加フォーム -->
+      <div class="card" id="add-brand-form" style="display:none">
+        <div class="card-title">ブランド追加</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>ブランド名</label>
+            <input type="text" id="new-brand-name" placeholder="例: PayPay">
+          </div>
+          <div class="form-group">
+            <label>カラー</label>
+            <input type="text" id="new-brand-color" placeholder="#4f7cff">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>前半期 デフォルト入金日（毎月）</label>
+            <input type="text" id="new-d1" placeholder="例: 25（毎月25日）">
+          </div>
+          <div class="form-group">
+            <label>後半期 デフォルト入金日（毎月）</label>
+            <input type="text" id="new-d2" placeholder="例: 10（翌月10日）">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-sm" onclick="saveBrand()">保存</button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('add-brand-form').style.display='none'">キャンセル</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 入金スケジュール ===== -->
+    <div class="page" id="page-schedule">
+      <div class="section-header">
+        <div class="section-title">入金スケジュール</div>
+        <select id="sched-month-select" style="width:auto;padding:7px 10px;" onchange="refreshSchedule()"></select>
+      </div>
+      <div class="card">
+        <div class="card-title">前半期（1日〜15日）入金スケジュール</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>ブランド</th><th>売上金額</th><th>入金予定日</th><th>メモ</th></tr>
+            </thead>
+            <tbody id="sched-h1-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">後半期（16日〜末日）入金スケジュール</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>ブランド</th><th>売上金額</th><th>入金予定日</th><th>メモ</th></tr>
+            </thead>
+            <tbody id="sched-h2-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div style="margin-top:8px;text-align:right;">
+        <button class="btn btn-success" onclick="saveSchedule()">💾 スケジュールを保存</button>
+      </div>
+    </div>
+
+    <!-- ===== API設定 ===== -->
+    <div class="page" id="page-settings">
+      <div class="section-title" style="margin-bottom:16px;">API設定</div>
+
+      <div class="alert alert-warn">
+        ⚠ APIキーはこのブラウザ内（localStorage）にのみ保存されます。他人のPCでは使用しないでください。
+      </div>
+
+      <div class="card">
+        <div class="card-title">スマレジ API認証情報</div>
+        <div class="form-group">
+          <label>Contract ID（契約ID）</label>
+          <input type="text" id="cfg-contract" placeholder="スマレジの契約ID">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Client ID</label>
+            <input type="text" id="cfg-client-id" placeholder="client_id">
+          </div>
+          <div class="form-group">
+            <label>Client Secret</label>
+            <input type="password" id="cfg-client-secret" placeholder="client_secret">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>環境</label>
+          <select id="cfg-env">
+            <option value="prod">本番環境</option>
+            <option value="sandbox">サンドボックス（テスト）</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="saveConfig()">💾 保存</button>
+          <button class="btn btn-secondary" onclick="testConnection()">🔌 接続テスト</button>
+          <span id="test-result" style="font-size:12px;color:var(--text2);"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">使い方</div>
+        <ol style="line-height:2;color:var(--text2);font-size:13px;padding-left:20px;">
+          <li>スマレジ開発者サイト（developer.smaregi.jp）でアプリを登録</li>
+          <li>取得した Client ID と Client Secret を上に入力して保存</li>
+          <li>「接続テスト」でAPIが繋がるか確認</li>
+          <li>ダッシュボードで「スマレジ取得」を押して売上データを取得</li>
+          <li>各ブランドの入金予定日を設定して保存</li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <div class="card-title">データ管理</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="exportData()">📤 データをエクスポート（JSON）</button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-file').click()">📥 インポート</button>
+          <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+          <button class="btn btn-danger btn-sm" onclick="clearAllData()">🗑 全データ削除</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Mobile nav -->
+<nav class="mobile-nav">
+  <button class="mobile-nav-item active" onclick="showPage('dashboard')" id="mnav-dashboard">
+    <span>📊</span><span>ダッシュボード</span>
+  </button>
+  <button class="mobile-nav-item" onclick="showPage('brands')" id="mnav-brands">
+    <span>💳</span><span>ブランド</span>
+  </button>
+  <button class="mobile-nav-item" onclick="showPage('schedule')" id="mnav-schedule">
+    <span>📅</span><span>スケジュール</span>
+  </button>
+  <button class="mobile-nav-item" onclick="showPage('settings')" id="mnav-settings">
+    <span>⚙</span><span>設定</span>
+  </button>
+</nav>
+
+<script>
+// ===========================
+// State
+// ===========================
+let currentPage = 'dashboard';
+let currentPeriod = 1; // 1=前半, 2=後半
+let currentMonth = '';
+let salesData = {}; // { "2025-06": { brands: [{name, color, h1_amount, h1_count, h2_amount, h2_count}] } }
+let brands = []; // [{name, color, d1, d2}]
+let schedule = {}; // { "2025-06-1": { brandName: {date, memo} } }
+
+const BRAND_COLORS = ['#4f7cff','#38d9a9','#ffd43b','#ff6b6b','#c084fc','#fb923c','#34d399','#60a5fa','#f472b6','#a3e635'];
+
+// ===========================
+// Init
+// ===========================
+function init() {
+  loadFromStorage();
+  buildMonthOptions();
+  renderBrandsTable();
+  renderDashboard();
+  renderSchedule();
+  loadConfigUI();
+}
+
+function loadFromStorage() {
+  try {
+    brands = JSON.parse(localStorage.getItem('cl_brands') || '[]');
+    salesData = JSON.parse(localStorage.getItem('cl_sales') || '{}');
+    schedule = JSON.parse(localStorage.getItem('cl_schedule') || '{}');
+    const cfg = getConfig();
+    if (cfg.clientId) updateApiStatus(true);
+  } catch(e) {}
+}
+
+function save() {
+  localStorage.setItem('cl_brands', JSON.stringify(brands));
+  localStorage.setItem('cl_sales', JSON.stringify(salesData));
+  localStorage.setItem('cl_schedule', JSON.stringify(schedule));
+}
+
+// ===========================
+// Navigation
+// ===========================
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.mobile-nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  const nav = document.getElementById('nav-' + page);
+  if (nav) nav.classList.add('active');
+  const mnav = document.getElementById('mnav-' + page);
+  if (mnav) mnav.classList.add('active');
+  currentPage = page;
+  if (page === 'dashboard') renderDashboard();
+  if (page === 'brands') renderBrandsTable();
+  if (page === 'schedule') renderSchedule();
+}
+
+// ===========================
+// Month selector
+// ===========================
+function buildMonthOptions() {
+  const now = new Date();
+  const selectors = ['month-select', 'sched-month-select'];
+  selectors.forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = '';
+    for (let i = 0; i < 13; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const val = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+      const lbl = d.getFullYear() + '年' + (d.getMonth()+1) + '月';
+      const opt = document.createElement('option');
+      opt.value = val; opt.textContent = lbl;
+      if (i === 0) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  });
+  currentMonth = document.getElementById('month-select').value;
+}
+
+function refreshDashboard() {
+  currentMonth = document.getElementById('month-select').value;
+  renderDashboard();
+}
+
+function refreshSchedule() {
+  currentMonth = document.getElementById('sched-month-select').value;
+  renderSchedule();
+}
+
+// ===========================
+// Period tab
+// ===========================
+function setPeriod(p) {
+  currentPeriod = p;
+  document.getElementById('tab-1').classList.toggle('active', p===1);
+  document.getElementById('tab-2').classList.toggle('active', p===2);
+  renderDashboard();
+}
+
+// ===========================
+// Config
+// ===========================
+function getConfig() {
+  return {
+    contractId: localStorage.getItem('cl_contract') || '',
+    clientId: localStorage.getItem('cl_client_id') || '',
+    clientSecret: localStorage.getItem('cl_client_secret') || '',
+    env: localStorage.getItem('cl_env') || 'prod'
+  };
+}
+function loadConfigUI() {
+  const cfg = getConfig();
+  document.getElementById('cfg-contract').value = cfg.contractId;
+  document.getElementById('cfg-client-id').value = cfg.clientId;
+  document.getElementById('cfg-client-secret').value = cfg.clientSecret;
+  document.getElementById('cfg-env').value = cfg.env;
+}
+function saveConfig() {
+  localStorage.setItem('cl_contract', document.getElementById('cfg-contract').value.trim());
+  localStorage.setItem('cl_client_id', document.getElementById('cfg-client-id').value.trim());
+  localStorage.setItem('cl_client_secret', document.getElementById('cfg-client-secret').value.trim());
+  localStorage.setItem('cl_env', document.getElementById('cfg-env').value);
+  alert('保存しました。');
+}
+
+function updateApiStatus(ok) {
+  const el = document.getElementById('api-status');
+  if (ok) { el.textContent = '接続済み'; el.className = 'badge ok'; }
+  else { el.textContent = '未接続'; el.className = 'badge ng'; }
+}
+
+async function testConnection() {
+  const cfg = getConfig();
+  const result = document.getElementById('test-result');
+  if (!cfg.clientId || !cfg.clientSecret || !cfg.contractId) {
+    result.textContent = '❌ 認証情報を入力してください';
+    result.style.color = 'var(--danger)';
+    return;
+  }
+  result.innerHTML = '<span class="loader"></span> テスト中...';
+  result.style.color = 'var(--text2)';
+
+  // スマレジ OAuth2トークン取得テスト
+  try {
+    const baseUrl = cfg.env === 'sandbox'
+      ? 'https://id.smaregi.dev'
+      : 'https://id.smaregi.jp';
+    const creds = btoa(cfg.clientId + ':' + cfg.clientSecret);
+    const res = await fetch(`${baseUrl}/authorize/token`, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Basic ' + creds,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: 'grant_type=client_credentials&scope=pos.transactions:read'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      localStorage.setItem('cl_token', data.access_token);
+      localStorage.setItem('cl_token_exp', Date.now() + data.expires_in * 1000);
+      result.textContent = '✅ 接続成功！';
+      result.style.color = 'var(--accent2)';
+      updateApiStatus(true);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      result.textContent = '❌ 認証失敗: ' + (err.error_description || res.status);
+      result.style.color = 'var(--danger)';
+      updateApiStatus(false);
+    }
+  } catch(e) {
+    result.textContent = '❌ 通信エラー: ' + e.message;
+    result.style.color = 'var(--danger)';
+  }
+}
+
+async function getToken() {
+  const exp = parseInt(localStorage.getItem('cl_token_exp') || '0');
+  if (Date.now() < exp - 60000) return localStorage.getItem('cl_token');
+  const cfg = getConfig();
+  const baseUrl = cfg.env === 'sandbox' ? 'https://id.smaregi.dev' : 'https://id.smaregi.jp';
+  const creds = btoa(cfg.clientId + ':' + cfg.clientSecret);
+  const res = await fetch(`${baseUrl}/authorize/token`, {
+    method: 'POST',
+    headers: { 'Authorization': 'Basic ' + creds, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'grant_type=client_credentials&scope=pos.transactions:read'
+  });
+  if (!res.ok) throw new Error('トークン取得失敗');
+  const data = await res.json();
+  localStorage.setItem('cl_token', data.access_token);
+  localStorage.setItem('cl_token_exp', Date.now() + data.expires_in * 1000);
+  return data.access_token;
+}
+
+// ===========================
+// Fetch sales from Smaregi
+// ===========================
+async function fetchSalesData() {
+  const cfg = getConfig();
+  if (!cfg.clientId || !cfg.clientSecret || !cfg.contractId) {
+    alert('先にAPI設定を完了してください。');
+    showPage('settings');
+    return;
+  }
+
+  const icon = document.getElementById('fetch-icon');
+  icon.innerHTML = '<span class="loader"></span>';
+
+  try {
+    const token = await getToken();
+    const month = document.getElementById('month-select').value;
+    const [year, mon] = month.split('-').map(Number);
+
+    const baseApi = cfg.env === 'sandbox'
+      ? 'https://api.smaregi.dev'
+      : 'https://api.smaregi.jp';
+
+    // 前半 1〜15日
+    const h1Start = `${year}-${String(mon).padStart(2,'0')}-01T00:00:00+09:00`;
+    const h1End   = `${year}-${String(mon).padStart(2,'0')}-15T23:59:59+09:00`;
+    // 後半 16〜末日
+    const lastDay = new Date(year, mon, 0).getDate();
+    const h2Start = `${year}-${String(mon).padStart(2,'0')}-16T00:00:00+09:00`;
+    const h2End   = `${year}-${String(mon).padStart(2,'0')}-${lastDay}T23:59:59+09:00`;
+
+    const [h1Data, h2Data] = await Promise.all([
+      fetchTransactions(token, baseApi, cfg.contractId, h1Start, h1End),
+      fetchTransactions(token, baseApi, cfg.contractId, h2Start, h2End)
+    ]);
+
+    const merged = mergeByBrand(h1Data, h2Data);
+    salesData[month] = { brands: merged };
+
+    // 新しいブランドを自動追加
+    merged.forEach((b, i) => {
+      if (!brands.find(x => x.name === b.name)) {
+        brands.push({ name: b.name, color: BRAND_COLORS[brands.length % BRAND_COLORS.length], d1: '', d2: '' });
+      }
+    });
+    save();
+    updateApiStatus(true);
+    renderDashboard();
+    renderBrandsTable();
+    document.getElementById('no-data-alert').style.display = 'none';
+    document.getElementById('data-card').style.display = 'block';
+  } catch(e) {
+    alert('データ取得エラー: ' + e.message + '\n\nAPI設定や権限を確認してください。');
+  } finally {
+    icon.textContent = '↻';
+  }
+}
+
+async function fetchTransactions(token, baseApi, contractId, from, to) {
+  const url = `${baseApi}/${contractId}/pos/transactions?sum_date_time_from=${encodeURIComponent(from)}&sum_date_time_to=${encodeURIComponent(to)}&limit=1000`;
+  const res = await fetch(url, {
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'API Error ' + res.status);
+  }
+  return res.json();
+}
+
+function mergeByBrand(h1Raw, h2Raw) {
+  const map = {};
+  const process = (rawArr, period) => {
+    if (!Array.isArray(rawArr)) return;
+    rawArr.forEach(tx => {
+      // スマレジの取引データからキャッシュレス決済を抽出
+      const payments = tx.transactionHeadDivision === '1' ? tx.storeTransactionPayment || [] : [];
+      payments.forEach(p => {
+        const name = p.paymentMethodName || p.paymentMethodDivision || '不明';
+        // キャッシュレスのみ（現金以外）
+        if (p.paymentMethodDivision === '01') return; // 現金スキップ
+        if (!map[name]) map[name] = { name, h1_amount: 0, h1_count: 0, h2_amount: 0, h2_count: 0 };
+        const amt = parseFloat(p.amount || 0);
+        if (period === 1) { map[name].h1_amount += amt; map[name].h1_count++; }
+        else              { map[name].h2_amount += amt; map[name].h2_count++; }
+      });
+    });
+  };
+  process(h1Raw, 1);
+  process(h2Raw, 2);
+  return Object.values(map).filter(b => b.h1_amount + b.h2_amount > 0);
+}
+
+// ===========================
+// Render Dashboard
+// ===========================
+function renderDashboard() {
+  const month = document.getElementById('month-select').value;
+  currentMonth = month;
+  const data = salesData[month];
+  const tbody = document.getElementById('sales-tbody');
+  const schedKey = month + '-' + currentPeriod;
+
+  if (!data) {
+    document.getElementById('total-amount').textContent = '¥0';
+    document.getElementById('brand-count').textContent = '0';
+    document.getElementById('set-count').textContent = '0 / 0';
+    tbody.innerHTML = '';
+    document.getElementById('data-card').style.display = 'none';
+    document.getElementById('no-data-alert').style.display = 'block';
+    return;
+  }
+
+  document.getElementById('no-data-alert').style.display = 'none';
+  document.getElementById('data-card').style.display = 'block';
+
+  let total = 0, setC = 0;
+  const rows = data.brands.map(b => {
+    const amt = currentPeriod === 1 ? b.h1_amount : b.h2_amount;
+    const cnt = currentPeriod === 1 ? b.h1_count  : b.h2_count;
+    total += amt;
+    const sched = schedule[schedKey] || {};
+    const entry = sched[b.name] || {};
+    const brandInfo = brands.find(x => x.name === b.name) || {};
+    const color = brandInfo.color || '#4f7cff';
+    const hasDate = !!entry.date;
+    if (hasDate) setC++;
+    const today = new Date().toISOString().split('T')[0];
+    const overdue = hasDate && entry.date < today;
+
+    return `<tr>
+      <td><div class="brand-pill">
+        <div class="brand-dot" style="background:${color}"></div>${b.name}
+      </div></td>
+      <td><div class="amount">¥${fmt(amt)}</div><div class="amount-sub">${cnt}件</div></td>
+      <td><div class="amount-sub">${cnt}件</div></td>
+      <td><div class="date-input-cell">
+        <input type="date" value="${entry.date||''}" onchange="setScheduleDate('${schedKey}','${b.name}',this.value)" style="width:150px">
+      </div></td>
+      <td><span class="status-badge ${overdue?'status-overdue':hasDate?'status-set':'status-unset'}">
+        ${overdue?'入金遅れ':hasDate?'設定済':'未設定'}
+      </span></td>
+    </tr>`;
+  });
+
+  tbody.innerHTML = rows.join('');
+  document.getElementById('total-amount').textContent = '¥' + fmt(total);
+  document.getElementById('brand-count').textContent = data.brands.length;
+  document.getElementById('set-count').textContent = setC + ' / ' + data.brands.length;
+}
+
+function setScheduleDate(schedKey, brandName, val) {
+  if (!schedule[schedKey]) schedule[schedKey] = {};
+  if (!schedule[schedKey][brandName]) schedule[schedKey][brandName] = {};
+  schedule[schedKey][brandName].date = val;
+  save();
+  renderDashboard();
+}
+
+// ===========================
+// Render Brands
+// ===========================
+function renderBrandsTable() {
+  const tbody = document.getElementById('brands-tbody');
+  if (brands.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">💳</div><p>ブランドがありません。スマレジからデータを取得するか、手動で追加してください。</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = brands.map((b, i) => `<tr>
+    <td><div class="brand-pill"><div class="brand-dot" style="background:${b.color}"></div>${b.name}</div></td>
+    <td><input type="text" value="${b.d1}" placeholder="例: 25日" style="width:120px" onchange="brands[${i}].d1=this.value;save()"></td>
+    <td><input type="text" value="${b.d2}" placeholder="例: 翌月10日" style="width:140px" onchange="brands[${i}].d2=this.value;save()"></td>
+    <td><button class="btn btn-danger btn-sm" onclick="deleteBrand(${i})">削除</button></td>
+  </tr>`).join('');
+}
+
+function openAddBrand() {
+  document.getElementById('add-brand-form').style.display = 'block';
+}
+
+function saveBrand() {
+  const name = document.getElementById('new-brand-name').value.trim();
+  if (!name) { alert('ブランド名を入力してください'); return; }
+  if (brands.find(b => b.name === name)) { alert('同名のブランドが既に存在します'); return; }
+  brands.push({
+    name,
+    color: document.getElementById('new-brand-color').value || BRAND_COLORS[brands.length % BRAND_COLORS.length],
+    d1: document.getElementById('new-d1').value.trim(),
+    d2: document.getElementById('new-d2').value.trim()
+  });
+  save();
+  renderBrandsTable();
+  document.getElementById('add-brand-form').style.display = 'none';
+  ['new-brand-name','new-brand-color','new-d1','new-d2'].forEach(id => document.getElementById(id).value = '');
+}
+
+function deleteBrand(i) {
+  if (!confirm(brands[i].name + ' を削除しますか？')) return;
+  brands.splice(i, 1);
+  save();
+  renderBrandsTable();
+}
+
+// ===========================
+// Render Schedule
+// ===========================
+function renderSchedule() {
+  const month = document.getElementById('sched-month-select').value;
+  ['h1','h2'].forEach((half, idx) => {
+    const period = idx + 1;
+    const schedKey = month + '-' + period;
+    const data = salesData[month];
+    const tbody = document.getElementById(`sched-${half}-tbody`);
+
+    if (!data || !data.brands.length) {
+      tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><p>データがありません</p></div></td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = data.brands.map(b => {
+      const amt = period === 1 ? b.h1_amount : b.h2_amount;
+      if (!amt) return '';
+      const sched = schedule[schedKey] || {};
+      const entry = sched[b.name] || {};
+      const brandInfo = brands.find(x => x.name === b.name) || {};
+      const color = brandInfo.color || '#4f7cff';
+      return `<tr>
+        <td><div class="brand-pill"><div class="brand-dot" style="background:${color}"></div>${b.name}</div></td>
+        <td class="amount">¥${fmt(amt)}</td>
+        <td><input type="date" value="${entry.date||''}" onchange="setScheduleDate('${schedKey}','${b.name}',this.value)" style="width:150px"></td>
+        <td><input type="text" value="${entry.memo||''}" placeholder="メモ" onchange="setScheduleMemo('${schedKey}','${b.name}',this.value)" style="width:160px"></td>
+      </tr>`;
+    }).join('');
+  });
+}
+
+function setScheduleMemo(schedKey, brandName, val) {
+  if (!schedule[schedKey]) schedule[schedKey] = {};
+  if (!schedule[schedKey][brandName]) schedule[schedKey][brandName] = {};
+  schedule[schedKey][brandName].memo = val;
+  save();
+}
+
+function saveSchedule() {
+  save();
+  alert('保存しました！');
+}
+
+// ===========================
+// Export / Import
+// ===========================
+function exportData() {
+  const data = { brands, salesData, schedule, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'cashless-data-' + new Date().toISOString().split('T')[0] + '.json';
+  a.click();
+}
+
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => {
+    try {
+      const data = JSON.parse(evt.target.result);
+      if (data.brands) brands = data.brands;
+      if (data.salesData) salesData = data.salesData;
+      if (data.schedule) schedule = data.schedule;
+      save();
+      renderDashboard();
+      renderBrandsTable();
+      renderSchedule();
+      alert('インポートしました！');
+    } catch(err) {
+      alert('ファイルの読み込みに失敗しました');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function clearAllData() {
+  if (!confirm('全データを削除しますか？この操作は元に戻せません。')) return;
+  ['cl_brands','cl_sales','cl_schedule','cl_token','cl_token_exp'].forEach(k => localStorage.removeItem(k));
+  brands = []; salesData = {}; schedule = {};
+  renderDashboard(); renderBrandsTable(); renderSchedule();
+  updateApiStatus(false);
+  alert('削除しました。');
+}
+
+// ===========================
+// Helpers
+// ===========================
+function fmt(n) {
+  return Math.round(n).toLocaleString('ja-JP');
+}
+
+// ===========================
+// Boot
+// ===========================
+init();
+</script>
+</body>
+</html>
