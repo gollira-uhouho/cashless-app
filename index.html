@@ -509,7 +509,7 @@
         <div class="card-title">スマレジ API認証情報</div>
         <div class="form-group">
           <label>Contract ID（契約ID）</label>
-          <input type="text" id="cfg-contract" placeholder="スマレジの契約ID">
+          <input type="text" id="cfg-contract" placeholder="スマレジの契約ID（例: sb_skg428e2）">
         </div>
         <div class="form-row">
           <div class="form-group">
@@ -523,15 +523,19 @@
         </div>
         <div class="form-group">
           <label>環境</label>
-          <select id="cfg-env">
-            <option value="prod">本番環境</option>
+          <select id="cfg-env" onchange="updateLoginUrl()">
             <option value="sandbox">サンドボックス（テスト）</option>
+            <option value="prod">本番環境</option>
           </select>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
           <button class="btn btn-primary" onclick="saveConfig()">💾 保存</button>
-          <button class="btn btn-secondary" onclick="testConnection()">🔌 接続テスト</button>
           <span id="test-result" style="font-size:12px;color:var(--text2);"></span>
+        </div>
+        <div style="border-top:1px solid var(--border);padding-top:14px;">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">① 保存したあと、下のボタンでスマレジにログインしてください</div>
+          <button class="btn btn-success" onclick="loginWithSmaregi()" id="login-btn">🔑 スマレジでログイン（認証）</button>
+          <span id="login-status" style="font-size:12px;margin-left:10px;color:var(--text2);"></span>
         </div>
       </div>
 
@@ -539,9 +543,9 @@
         <div class="card-title">使い方</div>
         <ol style="line-height:2;color:var(--text2);font-size:13px;padding-left:20px;">
           <li>スマレジ開発者サイト（developer.smaregi.jp）でアプリを登録</li>
-          <li>取得した Client ID と Client Secret を上に入力して保存</li>
-          <li>「接続テスト」でAPIが繋がるか確認</li>
-          <li>ダッシュボードで「スマレジ取得」を押して売上データを取得</li>
+          <li>取得した Contract ID・Client ID・Client Secret を上に入力して保存</li>
+          <li>「スマレジでログイン」ボタンを押してスマレジの認証画面で「許可」をクリック</li>
+          <li>ダッシュボードに戻り「スマレジ取得」を押して売上データを取得</li>
           <li>各ブランドの入金予定日を設定して保存</li>
         </ol>
       </div>
@@ -715,21 +719,36 @@ function proxify(url) {
   return `${PROXY}?target=${encodeURIComponent(url)}`;
 }
 
-async function testConnection() {
+function getAuthBaseUrl(env) {
+  return env === 'sandbox' ? 'https://id.smaregi.dev' : 'https://id.smaregi.jp';
+}
+
+function updateLoginUrl() {}
+
+function loginWithSmaregi() {
   const cfg = getConfig();
-  const result = document.getElementById('test-result');
-  if (!cfg.clientId || !cfg.clientSecret || !cfg.contractId) {
-    result.textContent = '❌ 認証情報を入力してください';
-    result.style.color = 'var(--danger)';
+  if (!cfg.clientId || !cfg.contractId) {
+    alert('先にContract IDとClient IDを入力して保存してください。');
     return;
   }
-  result.innerHTML = '<span class="loader"></span> テスト中...';
-  result.style.color = 'var(--text2)';
+  saveConfig();
+  const baseUrl = getAuthBaseUrl(cfg.env);
+  const redirectUri = 'https://gollira-uhouho.github.io/cashless-app/';
+  const url = `${baseUrl}/authorize?response_type=code&client_id=${cfg.clientId}&scope=pos.transactions:read&redirect_uri=${encodeURIComponent(redirectUri)}`;
+  window.location.href = url;
+}
 
+async function handleOAuthCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  if (!code) return;
+  history.replaceState({}, '', window.location.pathname);
+  const cfg = getConfig();
+  const loginStatus = document.getElementById('login-status');
+  if (loginStatus) { loginStatus.textContent = '🔄 認証中...'; loginStatus.style.color = 'var(--text2)'; }
   try {
-    const baseUrl = cfg.env === 'sandbox'
-      ? 'https://id.smaregi.dev'
-      : 'https://id.smaregi.jp';
+    const baseUrl = getAuthBaseUrl(cfg.env);
+    const redirectUri = 'https://gollira-uhouho.github.io/cashless-app/';
     const creds = btoa(cfg.clientId + ':' + cfg.clientSecret);
     const res = await fetch(proxify(`${baseUrl}/authorize/token`), {
       method: 'POST',
@@ -737,43 +756,31 @@ async function testConnection() {
         'Authorization': 'Basic ' + creds,
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: 'grant_type=client_credentials&scope=pos.transactions:read'
+      body: `grant_type=authorization_code&code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(redirectUri)}`
     });
     if (res.ok) {
       const data = await res.json();
       localStorage.setItem('cl_token', data.access_token);
       localStorage.setItem('cl_token_exp', Date.now() + data.expires_in * 1000);
-      result.textContent = '✅ 接続成功！';
-      result.style.color = 'var(--accent2)';
+      if (data.refresh_token) localStorage.setItem('cl_refresh_token', data.refresh_token);
       updateApiStatus(true);
+      if (loginStatus) { loginStatus.textContent = '✅ ログイン成功！'; loginStatus.style.color = 'var(--accent2)'; }
+      showPage('dashboard');
     } else {
       const err = await res.json().catch(() => ({}));
-      result.textContent = '❌ 認証失敗: ' + (err.error_description || res.status);
-      result.style.color = 'var(--danger)';
-      updateApiStatus(false);
+      if (loginStatus) { loginStatus.textContent = '❌ 認証失敗: ' + (err.error_description || res.status); loginStatus.style.color = 'var(--danger)'; }
     }
   } catch(e) {
-    result.textContent = '❌ 通信エラー: ' + e.message;
-    result.style.color = 'var(--danger)';
+    if (loginStatus) { loginStatus.textContent = '❌ エラー: ' + e.message; loginStatus.style.color = 'var(--danger)'; }
   }
 }
 
 async function getToken() {
   const exp = parseInt(localStorage.getItem('cl_token_exp') || '0');
   if (Date.now() < exp - 60000) return localStorage.getItem('cl_token');
-  const cfg = getConfig();
-  const baseUrl = cfg.env === 'sandbox' ? 'https://id.smaregi.dev' : 'https://id.smaregi.jp';
-  const creds = btoa(cfg.clientId + ':' + cfg.clientSecret);
-  const res = await fetch(proxify(`${baseUrl}/authorize/token`), {
-    method: 'POST',
-    headers: { 'Authorization': 'Basic ' + creds, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: 'grant_type=client_credentials&scope=pos.transactions:read'
-  });
-  if (!res.ok) throw new Error('トークン取得失敗');
-  const data = await res.json();
-  localStorage.setItem('cl_token', data.access_token);
-  localStorage.setItem('cl_token_exp', Date.now() + data.expires_in * 1000);
-  return data.access_token;
+  const token = localStorage.getItem('cl_token');
+  if (token) return token;
+  throw new Error('ログインが必要です。API設定画面から「スマレジでログイン」してください。');
 }
 
 // ===========================
@@ -1078,6 +1085,7 @@ function fmt(n) {
 // Boot
 // ===========================
 init();
+handleOAuthCallback();
 </script>
 </body>
 </html>
