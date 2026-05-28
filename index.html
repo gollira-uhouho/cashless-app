@@ -819,7 +819,10 @@ async function fetchSalesData() {
       fetchTransactions(token, baseApi, cfg.contractId, h2Start, h2End)
     ]);
 
+    console.log('h1Data:', JSON.stringify(h1Data).slice(0,500));
+    console.log('h2Data:', JSON.stringify(h2Data).slice(0,500));
     const merged = mergeByBrand(h1Data, h2Data);
+    console.log('merged:', JSON.stringify(merged));
     salesData[month] = { brands: merged };
 
     // 新しいブランドを自動追加
