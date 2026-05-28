@@ -819,10 +819,7 @@ async function fetchSalesData() {
       fetchTransactions(token, baseApi, cfg.contractId, h2Start, h2End)
     ]);
 
-    console.log('h1Data:', JSON.stringify(h1Data).slice(0,500));
-    console.log('h2Data:', JSON.stringify(h2Data).slice(0,500));
     const merged = mergeByBrand(h1Data, h2Data);
-    console.log('merged:', JSON.stringify(merged));
     salesData[month] = { brands: merged };
 
     // 新しいブランドを自動追加
@@ -869,17 +866,17 @@ function mergeByBrand(h1Raw, h2Raw) {
       if (tx.cancelDivision === '1') return;
       const payments = tx.storeTransactionPayment || [];
       // cardCompanyフィールドでブランド判定（VISA, JCB, Master等）
-      const cardCompany = tx.cardCompany || '';
-      const cashTotal = parseFloat(tx.cashTotal || tx.cash || 0);
+      const cardCompany = (tx.cardCompany || '').trim();
       const creditTotal = parseFloat(tx.creditTotal || 0);
       const totalAmt = parseFloat(tx.total || 0);
 
-      if (cardCompany && creditTotal > 0) {
+      if (cardCompany && cardCompany !== 'null' && (creditTotal > 0 || totalAmt > 0)) {
+        const amt = creditTotal > 0 ? creditTotal : totalAmt;
         // カード会社名でブランド分類
         const name = cardCompany;
         if (!map[name]) map[name] = { name, h1_amount: 0, h1_count: 0, h2_amount: 0, h2_count: 0 };
-        if (period === 1) { map[name].h1_amount += creditTotal; map[name].h1_count++; }
-        else              { map[name].h2_amount += creditTotal; map[name].h2_count++; }
+        if (period === 1) { map[name].h1_amount += amt; map[name].h1_count++; }
+        else              { map[name].h2_amount += amt; map[name].h2_count++; }
       } else if (payments.length > 0) {
         payments.forEach(p => {
           if (p.paymentMethodDivision === '01' || p.paymentMethodDivision === '02') return;
