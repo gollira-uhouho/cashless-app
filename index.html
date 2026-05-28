@@ -842,7 +842,7 @@ async function fetchSalesData() {
 }
 
 async function fetchTransactions(token, baseApi, contractId, from, to) {
-  const apiUrl = `${baseApi}/${contractId}/pos/transactions?sum_date_time_from=${encodeURIComponent(from)}&sum_date_time_to=${encodeURIComponent(to)}&limit=1000`;
+  const apiUrl = `${baseApi}/${contractId}/pos/transactions?updated_date_time_from=${encodeURIComponent(from)}&updated_date_time_to=${encodeURIComponent(to)}&limit=1000`;
   const res = await fetch(proxify(apiUrl), {
     headers: {
       'Authorization': 'Bearer ' + token,
