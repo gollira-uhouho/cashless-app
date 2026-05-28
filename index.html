@@ -710,6 +710,11 @@ function updateApiStatus(ok) {
   else { el.textContent = '未接続'; el.className = 'badge ng'; }
 }
 
+const PROXY = 'https://smaregi-proxy.tatsuya-toyama.workers.dev';
+function proxify(url) {
+  return `${PROXY}?target=${encodeURIComponent(url)}`;
+}
+
 async function testConnection() {
   const cfg = getConfig();
   const result = document.getElementById('test-result');
@@ -721,13 +726,12 @@ async function testConnection() {
   result.innerHTML = '<span class="loader"></span> テスト中...';
   result.style.color = 'var(--text2)';
 
-  // スマレジ OAuth2トークン取得テスト
   try {
     const baseUrl = cfg.env === 'sandbox'
       ? 'https://id.smaregi.dev'
       : 'https://id.smaregi.jp';
     const creds = btoa(cfg.clientId + ':' + cfg.clientSecret);
-    const res = await fetch(`${baseUrl}/authorize/token`, {
+    const res = await fetch(proxify(`${baseUrl}/authorize/token`), {
       method: 'POST',
       headers: {
         'Authorization': 'Basic ' + creds,
@@ -760,7 +764,7 @@ async function getToken() {
   const cfg = getConfig();
   const baseUrl = cfg.env === 'sandbox' ? 'https://id.smaregi.dev' : 'https://id.smaregi.jp';
   const creds = btoa(cfg.clientId + ':' + cfg.clientSecret);
-  const res = await fetch(`${baseUrl}/authorize/token`, {
+  const res = await fetch(proxify(`${baseUrl}/authorize/token`), {
     method: 'POST',
     headers: { 'Authorization': 'Basic ' + creds, 'Content-Type': 'application/x-www-form-urlencoded' },
     body: 'grant_type=client_credentials&scope=pos.transactions:read'
@@ -831,8 +835,8 @@ async function fetchSalesData() {
 }
 
 async function fetchTransactions(token, baseApi, contractId, from, to) {
-  const url = `${baseApi}/${contractId}/pos/transactions?sum_date_time_from=${encodeURIComponent(from)}&sum_date_time_to=${encodeURIComponent(to)}&limit=1000`;
-  const res = await fetch(url, {
+  const apiUrl = `${baseApi}/${contractId}/pos/transactions?sum_date_time_from=${encodeURIComponent(from)}&sum_date_time_to=${encodeURIComponent(to)}&limit=1000`;
+  const res = await fetch(proxify(apiUrl), {
     headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
   });
   if (!res.ok) {
