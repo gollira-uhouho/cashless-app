@@ -322,6 +322,41 @@
   .section-title { font-size: 16px; font-weight: 700; }
 
   select option { background: var(--bg2); }
+
+  /* ── Calendar ── */
+  .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-top: 8px; }
+  .cal-header { text-align: center; font-size: 11px; color: var(--text3); padding: 6px 0; font-weight: 700; }
+  .cal-day {
+    min-height: 72px; background: var(--bg3); border-radius: 6px; padding: 4px;
+    border: 1px solid transparent; font-size: 11px; cursor: default;
+    transition: border-color .15s;
+  }
+  .cal-day.other-month { opacity: .3; }
+  .cal-day.today { border-color: var(--accent); }
+  .cal-day-num { font-size: 11px; color: var(--text2); margin-bottom: 2px; }
+  .cal-day.today .cal-day-num { color: var(--accent); font-weight: 700; }
+  .cal-event {
+    font-size: 10px; padding: 1px 4px; border-radius: 3px; margin-top: 1px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500;
+  }
+  .cal-event.credit { background: rgba(79,124,255,.25); color: #a0b4ff; }
+  .cal-event.emoney { background: rgba(255,212,59,.2); color: #ffd43b; }
+  .cal-event.qr { background: rgba(56,217,169,.2); color: #38d9a9; }
+  .cal-event.overseas { background: rgba(192,132,252,.2); color: #c084fc; }
+  .cal-nav { display: flex; align-items: center; gap: 12px; }
+  .cal-nav button { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; color: var(--text2); padding: 5px 12px; cursor: pointer; font-family: var(--font); font-size: 13px; }
+  .cal-nav button:hover { color: var(--text); border-color: var(--text3); }
+  .cal-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; font-size: 11px; }
+  .cal-legend-item { display: flex; align-items: center; gap: 4px; color: var(--text2); }
+  .cal-legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+  .rule-badge {
+    display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 10px;
+    font-weight: 600; margin-left: 4px;
+  }
+  .rule-credit { background: rgba(79,124,255,.2); color: #a0b4ff; }
+  .rule-emoney { background: rgba(255,212,59,.15); color: #ffd43b; }
+  .rule-qr { background: rgba(56,217,169,.15); color: #38d9a9; }
+  .rule-overseas { background: rgba(192,132,252,.15); color: #c084fc; }
 </style>
 </head>
 <body>
@@ -345,6 +380,9 @@
     <div class="nav-item" onclick="showPage('schedule')" id="nav-schedule">
       <span class="nav-icon">📅</span> 入金スケジュール
     </div>
+    <div class="nav-item" onclick="showPage('calendar')" id="nav-calendar">
+      <span class="nav-icon">🗓</span> 入金カレンダー
+    </div>
     <div class="nav-item" onclick="showPage('settings')" id="nav-settings">
       <span class="nav-icon">⚙</span> API設定
     </div>
@@ -362,6 +400,7 @@
           <button class="btn btn-primary btn-sm" onclick="fetchSalesData()">
             <span id="fetch-icon">↻</span> スマレジ取得
           </button>
+          <button class="btn btn-secondary btn-sm" onclick="autoFillAndRefresh()" title="ブランドルールに基づき入金日を自動設定">⚡ 入金日を自動設定</button>
         </div>
       </div>
 
@@ -460,6 +499,36 @@
         <div style="display:flex;gap:8px;">
           <button class="btn btn-primary btn-sm" onclick="saveBrand()">保存</button>
           <button class="btn btn-secondary btn-sm" onclick="document.getElementById('add-brand-form').style.display='none'">キャンセル</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 入金カレンダー ===== -->
+    <div class="page" id="page-calendar">
+      <div class="section-header">
+        <div class="section-title">入金カレンダー</div>
+        <div class="cal-nav">
+          <button onclick="calPrev()">◀</button>
+          <span id="cal-month-label" style="font-size:15px;font-weight:700;min-width:100px;text-align:center"></span>
+          <button onclick="calNext()">▶</button>
+        </div>
+      </div>
+      <div class="cal-legend">
+        <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#4f7cff"></div>クレジット</div>
+        <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#ffd43b"></div>電子マネー</div>
+        <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#38d9a9"></div>QRコード</div>
+        <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#c084fc"></div>海外QR</div>
+      </div>
+      <div class="card" style="margin-top:12px;">
+        <div class="calendar-grid" id="cal-grid"></div>
+      </div>
+      <div class="card" id="cal-events-card">
+        <div class="card-title">この月の入金予定</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>入金予定日</th><th>ブランド</th><th>種別</th><th>売上期間</th><th>金額</th></tr></thead>
+            <tbody id="cal-events-tbody"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -572,6 +641,9 @@
   <button class="mobile-nav-item" onclick="showPage('brands')" id="mnav-brands">
     <span>💳</span><span>ブランド</span>
   </button>
+  <button class="mobile-nav-item" onclick="showPage('calendar')" id="mnav-calendar">
+    <span>🗓</span><span>カレンダー</span>
+  </button>
   <button class="mobile-nav-item" onclick="showPage('schedule')" id="mnav-schedule">
     <span>📅</span><span>スケジュール</span>
   </button>
@@ -590,6 +662,8 @@ let currentMonth = '';
 let salesData = {}; // { "2025-06": { brands: [{name, color, h1_amount, h1_count, h2_amount, h2_count}] } }
 let brands = []; // [{name, color, d1, d2}]
 let schedule = {}; // { "2025-06-1": { brandName: {date, memo} } }
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
 
 const BRAND_COLORS = ['#4f7cff','#38d9a9','#ffd43b','#ff6b6b','#c084fc','#fb923c','#34d399','#60a5fa','#f472b6','#a3e635'];
 
@@ -603,6 +677,8 @@ function init() {
   renderDashboard();
   renderSchedule();
   loadConfigUI();
+  calYear = new Date().getFullYear();
+  calMonth = new Date().getMonth();
 }
 
 function loadFromStorage() {
@@ -637,6 +713,7 @@ function showPage(page) {
   if (page === 'dashboard') renderDashboard();
   if (page === 'brands') renderBrandsTable();
   if (page === 'schedule') renderSchedule();
+  if (page === 'calendar') renderCalendar();
 }
 
 // ===========================
@@ -829,6 +906,7 @@ async function fetchSalesData() {
       }
     });
     save();
+    autoFillDates(month);
     updateApiStatus(true);
     renderDashboard();
     renderBrandsTable();
@@ -1103,6 +1181,216 @@ function clearAllData() {
 function fmt(n) {
   return Math.round(n).toLocaleString('ja-JP');
 }
+
+
+// ===========================
+// Brand classification
+// ===========================
+const BRAND_RULES = {
+  credit: {
+    keywords: ['VISA','MASTER','JCB','AMEX','AMERICAN EXPRESS','DINERS','DISCOVER','UNIONPAY','UNION PAY','銀聯'],
+    label: 'クレジット', cls: 'credit',
+    rule: (salesMonth, period) => {
+      // 前半(1-15日)→同月末, 後半(16-末日)→翌月15日
+      const [y, m] = salesMonth.split('-').map(Number);
+      if (period === 1) {
+        const lastDay = new Date(y, m, 0).getDate();
+        return `${y}-${String(m).padStart(2,'0')}-${lastDay}`;
+      } else {
+        const ny = m === 12 ? y+1 : y;
+        const nm = m === 12 ? 1 : m+1;
+        return `${ny}-${String(nm).padStart(2,'0')}-15`;
+      }
+    }
+  },
+  emoney: {
+    keywords: ['SUICA','PASMO','TOICA','MANACA','ICOCA','SUGOCA','NIMOCA','はやかけん','HAYAKAKEN','QUICPAY','QUIC PAY','ID','iD','WAON','NANACO','EDY','楽天EDY','楽天edy'],
+    label: '電子マネー', cls: 'emoney',
+    rule: (salesMonth, period) => {
+      const [y, m] = salesMonth.split('-').map(Number);
+      if (period === 1) {
+        const lastDay = new Date(y, m, 0).getDate();
+        return `${y}-${String(m).padStart(2,'0')}-${lastDay}`;
+      } else {
+        const ny = m === 12 ? y+1 : y;
+        const nm = m === 12 ? 1 : m+1;
+        return `${ny}-${String(nm).padStart(2,'0')}-15`;
+      }
+    }
+  },
+  qr: {
+    keywords: ['PAYPAY','PAY PAY','D払い','D払','楽天PAY','楽天Pay','RAKUTEN PAY','AU PAY','AUPAY','メルペイ','メルPAY','MERPAY'],
+    label: 'QRコード', cls: 'qr',
+    rule: (salesMonth, period) => {
+      // 前半・後半どちらも月末締め→翌月末
+      const [y, m] = salesMonth.split('-').map(Number);
+      const ny = m === 12 ? y+1 : y;
+      const nm = m === 12 ? 1 : m+1;
+      const lastDay = new Date(ny, nm, 0).getDate();
+      return `${ny}-${String(nm).padStart(2,'0')}-${lastDay}`;
+    }
+  },
+  overseas: {
+    keywords: ['WECHAT','ALIPAY','支付宝','PAYPAY','GPAY','TOSS','GCASH','TRUEMONEY','RABBITLINE'],
+    label: '海外QR', cls: 'overseas',
+    rule: (salesMonth, period) => {
+      const [y, m] = salesMonth.split('-').map(Number);
+      const ny = m === 12 ? y+1 : y;
+      const nm = m === 12 ? 1 : m+1;
+      const lastDay = new Date(ny, nm, 0).getDate();
+      return `${ny}-${String(nm).padStart(2,'0')}-${lastDay}`;
+    }
+  }
+};
+
+function classifyBrand(brandName) {
+  const upper = brandName.toUpperCase();
+  for (const [type, rule] of Object.entries(BRAND_RULES)) {
+    if (rule.keywords.some(k => upper.includes(k.toUpperCase()))) {
+      return { type, ...rule };
+    }
+  }
+  return { type: 'credit', ...BRAND_RULES.credit };
+}
+
+function calcPaymentDate(brandName, salesMonth, period) {
+  const cls = classifyBrand(brandName);
+  return { date: cls.rule(salesMonth, period), cls };
+}
+
+// ===========================
+// Auto-schedule generation
+// ===========================
+function generateAutoSchedule(month) {
+  const data = salesData[month];
+  if (!data) return [];
+  const events = [];
+  data.brands.forEach(b => {
+    [1, 2].forEach(period => {
+      const amt = period === 1 ? b.h1_amount : b.h2_amount;
+      if (!amt) return;
+      const { date, cls } = calcPaymentDate(b.name, month, period);
+      const periodLabel = period === 1 ? '1〜15日' : '16〜末日';
+      events.push({
+        date, brandName: b.name, amount: amt, period, periodLabel,
+        type: cls.type, typeLabel: cls.label, typeCls: cls.cls
+      });
+    });
+  });
+  return events;
+}
+
+// ===========================
+// Calendar rendering
+// ===========================
+function calPrev() {
+  calMonth--;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  renderCalendar();
+}
+function calNext() {
+  calMonth++;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const y = calYear, m = calMonth;
+  const label = `${y}年${m+1}月`;
+  document.getElementById('cal-month-label').textContent = label;
+
+  const firstDay = new Date(y, m, 1).getDay();
+  const lastDate = new Date(y, m+1, 0).getDate();
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+  // 全salesDataからこの月に関連するイベントを収集
+  const eventMap = {};
+  Object.keys(salesData).forEach(salesMonth => {
+    const events = generateAutoSchedule(salesMonth);
+    events.forEach(ev => {
+      if (!ev.date) return;
+      const [ey, em] = ev.date.split('-').map(Number);
+      if (ey === y && em === m+1) {
+        if (!eventMap[ev.date]) eventMap[ev.date] = [];
+        eventMap[ev.date].push(ev);
+      }
+    });
+  });
+
+  const grid = document.getElementById('cal-grid');
+  const days = ['日','月','火','水','木','金','土'];
+  let html = days.map(d => `<div class="cal-header">${d}</div>`).join('');
+
+  // 前月の空白
+  for (let i = 0; i < firstDay; i++) {
+    html += `<div class="cal-day other-month"></div>`;
+  }
+
+  for (let d = 1; d <= lastDate; d++) {
+    const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = dateStr === todayStr;
+    const evs = eventMap[dateStr] || [];
+    const evHtml = evs.map(ev =>
+      `<div class="cal-event ${ev.typeCls}" title="${ev.brandName} ¥${fmt(ev.amount)}">${ev.brandName.slice(0,6)} ¥${fmtShort(ev.amount)}</div>`
+    ).join('');
+    html += `<div class="cal-day${isToday?' today':''}">
+      <div class="cal-day-num">${d}</div>
+      ${evHtml}
+    </div>`;
+  }
+
+  grid.innerHTML = html;
+
+  // イベント一覧テーブル
+  const allEventsThisMonth = [];
+  Object.values(eventMap).flat().sort((a,b) => a.date.localeCompare(b.date)).forEach(ev => {
+    allEventsThisMonth.push(ev);
+  });
+
+  const tbody = document.getElementById('cal-events-tbody');
+  if (!allEventsThisMonth.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text2);padding:20px;">この月の入金予定はありません。ダッシュボードでデータを取得してください。</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = allEventsThisMonth.map(ev => `<tr>
+    <td style="font-family:var(--mono)">${ev.date}</td>
+    <td>${ev.brandName}</td>
+    <td><span class="rule-badge rule-${ev.typeCls}">${ev.typeLabel}</span></td>
+    <td style="color:var(--text2)">${ev.periodLabel}分</td>
+    <td style="font-family:var(--mono)">¥${fmt(ev.amount)}</td>
+  </tr>`).join('');
+}
+
+function autoFillAndRefresh() {
+  const month = document.getElementById('month-select').value;
+  autoFillDates(month);
+  renderDashboard();
+  renderSchedule();
+  alert('入金日を自動設定しました！');
+}
+
+function fmtShort(n) {
+  if (n >= 10000) return Math.round(n/1000) + 'k';
+  return Math.round(n).toLocaleString('ja-JP');
+}
+
+// ===========================
+// Auto-fill dashboard dates
+// ===========================
+function autoFillDates(month) {
+  const events = generateAutoSchedule(month);
+  events.forEach(ev => {
+    const schedKey = month + '-' + ev.period;
+    if (!schedule[schedKey]) schedule[schedKey] = {};
+    if (!schedule[schedKey][ev.brandName]) schedule[schedKey][ev.brandName] = {};
+    if (!schedule[schedKey][ev.brandName].date) {
+      schedule[schedKey][ev.brandName].date = ev.date;
+    }
+  });
+  save();
+}
+
 
 // ===========================
 // Boot
