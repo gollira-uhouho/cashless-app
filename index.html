@@ -845,7 +845,7 @@ async function fetchSalesData() {
 }
 
 async function fetchTransactions(token, baseApi, contractId, from, to) {
-  const apiUrl = `${baseApi}/${contractId}/pos/transactions?transaction_date_time-from=${encodeURIComponent(from)}&transaction_date_time-to=${encodeURIComponent(to)}`;
+  const apiUrl = `${baseApi}/${contractId}/pos/transactions?transaction_date_time-from=${encodeURIComponent(from)}&transaction_date_time-to=${encodeURIComponent(to)}&with_details=all&limit=100`;
   const res = await fetch(proxify(apiUrl), {
     headers: {
       'Authorization': 'Bearer ' + token,
@@ -870,10 +870,12 @@ function mergeByBrand(h1Raw, h2Raw) {
       const payments = tx.storeTransactionPayment || [];
       if (payments.length > 0) {
         payments.forEach(p => {
+          // 現金(01)・釣り銭(02)はスキップ
           if (p.paymentMethodDivision === '01' || p.paymentMethodDivision === '02') return;
-          const name = p.paymentMethodName || ('決済手段' + p.paymentMethodDivision) || '不明';
+          // ブランド名：creditDivisionName(Visa等) > paymentMethodName > division番号
+          const name = p.creditDivisionName || p.paymentMethodName || ('決済手段' + p.paymentMethodDivision);
           if (!map[name]) map[name] = { name, h1_amount: 0, h1_count: 0, h2_amount: 0, h2_count: 0 };
-          const amt = parseFloat(p.amount || 0);
+          const amt = parseFloat(p.creditTax || p.amount || 0);
           if (period === 1) { map[name].h1_amount += amt; map[name].h1_count++; }
           else              { map[name].h2_amount += amt; map[name].h2_count++; }
         });
