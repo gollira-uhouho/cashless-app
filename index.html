@@ -863,22 +863,33 @@ function mergeByBrand(h1Raw, h2Raw) {
   const process = (rawArr, period) => {
     if (!Array.isArray(rawArr)) return;
     rawArr.forEach(tx => {
-      // スマレジの取引データからキャッシュレス決済を抽出
-      const payments = tx.transactionHeadDivision === '1' ? tx.storeTransactionPayment || [] : [];
-      payments.forEach(p => {
-        const name = p.paymentMethodName || p.paymentMethodDivision || '不明';
-        // キャッシュレスのみ（現金以外）
-        if (p.paymentMethodDivision === '01') return; // 現金スキップ
-        if (!map[name]) map[name] = { name, h1_amount: 0, h1_count: 0, h2_amount: 0, h2_count: 0 };
-        const amt = parseFloat(p.amount || 0);
-        if (period === 1) { map[name].h1_amount += amt; map[name].h1_count++; }
-        else              { map[name].h2_amount += amt; map[name].h2_count++; }
-      });
+      if (tx.cancelDivision === '1') return;
+      const payments = tx.storeTransactionPayment || [];
+      if (payments.length > 0) {
+        payments.forEach(p => {
+          if (p.paymentMethodDivision === '01' || p.paymentMethodDivision === '02') return;
+          const name = p.paymentMethodName || ('決済手段' + p.paymentMethodDivision) || '不明';
+          if (!map[name]) map[name] = { name, h1_amount: 0, h1_count: 0, h2_amount: 0, h2_count: 0 };
+          const amt = parseFloat(p.amount || 0);
+          if (period === 1) { map[name].h1_amount += amt; map[name].h1_count++; }
+          else              { map[name].h2_amount += amt; map[name].h2_count++; }
+        });
+      } else {
+        const cashAmt = parseFloat(tx.taxIncludedCash || tx.cash || 0);
+        const totalAmt = parseFloat(tx.taxIncludedTotalPrice || tx.totalPrice || 0);
+        const cardAmt = totalAmt - cashAmt;
+        if (cardAmt > 0) {
+          const name = 'クレジットカード';
+          if (!map[name]) map[name] = { name, h1_amount: 0, h1_count: 0, h2_amount: 0, h2_count: 0 };
+          if (period === 1) { map[name].h1_amount += cardAmt; map[name].h1_count++; }
+          else              { map[name].h2_amount += cardAmt; map[name].h2_count++; }
+        }
+      }
     });
   };
   process(h1Raw, 1);
   process(h2Raw, 2);
-  return Object.values(map).filter(b => b.h1_amount + b.h2_amount > 0);
+  return Object.values(map);
 }
 
 // ===========================
