@@ -868,34 +868,32 @@ function mergeByBrand(h1Raw, h2Raw) {
     rawArr.forEach(tx => {
       if (tx.cancelDivision === '1') return;
       const payments = tx.storeTransactionPayment || [];
-      if (payments.length > 0) {
+      // cardCompanyフィールドでブランド判定（VISA, JCB, Master等）
+      const cardCompany = tx.cardCompany || '';
+      const cashTotal = parseFloat(tx.cashTotal || tx.cash || 0);
+      const creditTotal = parseFloat(tx.creditTotal || 0);
+      const totalAmt = parseFloat(tx.total || 0);
+
+      if (cardCompany && creditTotal > 0) {
+        // カード会社名でブランド分類
+        const name = cardCompany;
+        if (!map[name]) map[name] = { name, h1_amount: 0, h1_count: 0, h2_amount: 0, h2_count: 0 };
+        if (period === 1) { map[name].h1_amount += creditTotal; map[name].h1_count++; }
+        else              { map[name].h2_amount += creditTotal; map[name].h2_count++; }
+      } else if (payments.length > 0) {
         payments.forEach(p => {
-          // 現金(01)・釣り銭(02)はスキップ
           if (p.paymentMethodDivision === '01' || p.paymentMethodDivision === '02') return;
-          // ブランド名：creditDivisionName(Visa等) > paymentMethodName > division番号
           const name = p.creditDivisionName || p.paymentMethodName || ('決済手段' + p.paymentMethodDivision);
           if (!map[name]) map[name] = { name, h1_amount: 0, h1_count: 0, h2_amount: 0, h2_count: 0 };
-          const amt = parseFloat(p.creditTax || p.amount || 0);
+          const amt = parseFloat(p.amount || 0);
           if (period === 1) { map[name].h1_amount += amt; map[name].h1_count++; }
           else              { map[name].h2_amount += amt; map[name].h2_count++; }
         });
-      } else {
-        // 決済明細なし→合計金額から現金を除いた金額をクレジットカードとして処理
-        const cashAmt = parseFloat(tx.cash || tx.cashChange || 0);
-        const totalAmt = parseFloat(tx.total || tx.subtotal || 0);
-        const cardAmt = totalAmt - cashAmt;
-        if (cardAmt > 0) {
-          const name = 'クレジットカード';
-          if (!map[name]) map[name] = { name, h1_amount: 0, h1_count: 0, h2_amount: 0, h2_count: 0 };
-          if (period === 1) { map[name].h1_amount += cardAmt; map[name].h1_count++; }
-          else              { map[name].h2_amount += cardAmt; map[name].h2_count++; }
-        } else if (totalAmt > 0) {
-          // 現金かどうか不明な場合も一旦すべてクレジットカードとして表示
-          const name = 'クレジットカード';
-          if (!map[name]) map[name] = { name, h1_amount: 0, h1_count: 0, h2_amount: 0, h2_count: 0 };
-          if (period === 1) { map[name].h1_amount += totalAmt; map[name].h1_count++; }
-          else              { map[name].h2_amount += totalAmt; map[name].h2_count++; }
-        }
+      } else if (creditTotal > 0) {
+        const name = 'クレジットカード';
+        if (!map[name]) map[name] = { name, h1_amount: 0, h1_count: 0, h2_amount: 0, h2_count: 0 };
+        if (period === 1) { map[name].h1_amount += creditTotal; map[name].h1_count++; }
+        else              { map[name].h2_amount += creditTotal; map[name].h2_count++; }
       }
     });
   };
